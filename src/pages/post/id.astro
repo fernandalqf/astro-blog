@@ -1,0 +1,15 @@
+---
+import Layout from '../../layouts/Layout.astro';
+
+// Carrega o post pelo slug
+const post = await Astro.glob('../../posts/*.md');
+const current = post.find(p => p.url === Astro.url.pathname);
+---
+
+<Layout>
+  <article class="prose prose-blue max-w-none">
+    <h1>{current.frontmatter.title}</h1>
+    <p class="text-gray-500">{current.frontmatter.date}</p>
+    <div innerHTML={current.compiledContent()} />
+  </article>
+</Layout>

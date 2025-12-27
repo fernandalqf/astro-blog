@@ -1,11 +1,28 @@
 ---
-import Welcome from '../components/Welcome.astro';
 import Layout from '../layouts/Layout.astro';
+import PostCard from '../components/PostCard.astro';
 
-// Welcome to Astro! Wondering what to do next? Check out the Astro documentation at https://docs.astro.build
-// Don't want to use any of this? Delete everything in this file, the `assets`, `components`, and `layouts` directories, and start fresh.
+// Lê todos os posts da pasta "src/posts"
+const posts = await Astro.glob('../posts/*.md');
+
+// Ordena por data (mais recente primeiro)
+posts.sort((a, b) => new Date(b.frontmatter.date) - new Date(a.frontmatter.date));
+
+// Pega só os últimos 5
+const latestPosts = posts.slice(0, 5);
 ---
 
 <Layout>
-	<Welcome />
+  <h1 class="text-4xl font-bold mb-6 text-blue-500">Últimos Posts</h1>
+
+  <div class="grid gap-4">
+    {latestPosts.map((post) => (
+      <PostCard
+        title={post.frontmatter.title}
+        description={post.frontmatter.description}
+        date={post.frontmatter.date}
+        url={post.url}
+      />
+    ))}
+  </div>
 </Layout>
