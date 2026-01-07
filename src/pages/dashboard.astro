@@ -1,0 +1,313 @@
+---
+import Layout from '../layouts/Layout.astro';
+---
+
+<Layout>
+  <div class="mx-auto mt-20 max-w-3xl">
+    <!-- Cabeçalho -->
+    <div class="mb-10 flex items-center justify-between">
+      <h1 id="welcome" class="text-2xl font-semibold text-gray-800">
+        Hello 👋
+      </h1>
+
+      <button
+        id="logout"
+        class="text-sm font-medium text-red-600 hover:underline"
+      >
+        Logout
+      </button>
+    </div>
+
+    <!-- Create a new post -->
+    <div class="rounded border p-6 shadow">
+      <h2 class="mb-4 text-xl font-semibold">Create a new post</h2>
+
+      <form id="postForm" class="flex flex-col gap-4">
+        <input
+          id="title"
+          type="text"
+          placeholder="Post title"
+          class="rounded border px-4 py-2"
+          required
+        />
+
+        <textarea
+          id="content"
+          placeholder="Write your post..."
+          rows="5"
+          class="rounded border px-4 py-2"
+          required
+        ></textarea>
+
+        <button
+          type="submit"
+          class="self-start rounded bg-blue-600 px-4 py-2 font-semibold text-white"
+        >
+          Publish
+        </button>
+
+        <p id="message" class="text-sm text-green-600"></p>
+      </form>
+    </div>
+
+    <!-- My posts -->
+    <div class="mt-10">
+      <h2 class="mb-4 text-xl font-semibold">My posts</h2>
+      <div id="postsList" class="space-y-4">
+        <p class="text-gray-500">Loading posts...</p>
+      </div>
+    </div>
+  </div>
+</Layout>
+
+
+
+
+
+
+
+
+
+
+<script>
+import { supabase } from '../lib/supabaseClient.js';
+
+const form = document.getElementById('postForm');
+const message = document.getElementById('message');
+const postsContainer = document.getElementById('postsList');
+
+// Buscar usuário logado
+const { data: userData } = await supabase.auth.getUser();
+const user = userData?.user;
+
+if (!user) {
+  window.location.href = '/login';
+} else {
+  document.getElementById('welcome').textContent = `Hello, ${user.email} 👋`;
+}
+
+// Logout
+document.getElementById('logout').addEventListener('click', async () => {
+  await supabase.auth.signOut();
+  window.location.href = '/login';
+});
+
+// Function create post
+async function createPostListener(e) {
+  e.preventDefault();
+  const title = document.getElementById('title').value;
+  const content = document.getElementById('content').value;
+
+  const { error } = await supabase.from('posts').insert({
+    user_id: user.id,
+    title,
+    content
+  });
+
+  if (error) {
+    message.textContent = 'Error publishing post 😢';
+    message.className = 'text-sm text-red-600';
+    console.error(error);
+  } else {
+    form.reset();
+    loadPosts();
+  }
+}
+
+// Initializes creation listener
+form.addEventListener('submit', createPostListener);
+
+// List user's posts
+async function loadPosts() {
+  const { data: posts, error } = await supabase
+    .from('posts')
+    .select('*')
+    .eq('user_id', user.id)
+    .order('created_at', { ascending: false });
+
+  postsContainer.innerHTML = '';
+
+  if (error) {
+    postsContainer.innerHTML =
+      '<p class="text-red-600">Error loading posts</p>';
+    console.error(error);
+    return;
+  }
+
+  if (!posts || posts.length === 0) {
+    postsContainer.innerHTML =
+      '<p class="text-gray-500">You have not created any posts yet.</p>';
+    return;
+  }
+
+  posts.forEach((post) => {
+    const div = document.createElement('div');
+    div.className = 'rounded border p-4';
+    div.innerHTML = `
+  <div class="post-content space-y-2">
+    <h3 class="post-title text-lg font-semibold">${post.title}</h3>
+    <p class="post-text text-gray-700">${post.content}</p>
+    <p class="text-xs text-gray-400">
+      ${new Date(post.created_at).toLocaleDateString()}
+    </p>
+  </div>
+
+  <div class="mt-3 flex gap-2">
+    <button class="edit-btn text-sm text-blue-600 hover:underline" data-id="${post.id}">
+      Edit
+    </button>
+    <button class="delete-btn text-sm text-red-600 hover:underline" data-id="${post.id}">
+      Delete
+    </button>
+  </div>
+`;
+    postsContainer.appendChild(div);
+  });
+
+  // Add listener delete
+  postsContainer.querySelectorAll('.delete-btn').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      const postId = btn.dataset.id;
+      const { error } = await supabase.from('posts').delete().eq('id', postId);
+
+      if (error) {
+     showToast('Error deleting post 😢', 'error');
+     console.error(error);
+     } else {
+     showToast('Post deleted ✅');
+     loadPosts();
+     }
+    });
+  });
+
+  // Edit Inline
+postsContainer.querySelectorAll('.edit-btn').forEach((btn) => {
+  btn.addEventListener('click', () => {
+    const postId = btn.dataset.id;
+    const postDiv = btn.closest('.rounded');
+
+    const titleEl = postDiv.querySelector('.post-title');
+    const textEl = postDiv.querySelector('.post-text');
+
+    const originalTitle = titleEl.textContent;
+    const originalText = textEl.textContent;
+
+    // Replace inputs
+    titleEl.outerHTML = `
+      <input
+        class="edit-title w-full rounded border px-2 py-1"
+        value="${originalTitle}"
+      />
+    `;
+
+    textEl.outerHTML = `
+      <textarea
+        class="edit-content w-full rounded border px-2 py-1"
+        rows="3"
+      >${originalText}</textarea>
+    `;
+
+    // Troca botões
+    btn.parentElement.innerHTML = `
+      <button class="save-btn text-sm text-green-600 hover:underline">
+        Save
+      </button>
+      <button class="cancel-btn text-sm text-gray-600 hover:underline">
+        Cancel
+      </button>
+    `;
+
+    // SAVE
+    postDiv.querySelector('.save-btn').addEventListener('click', async () => {
+      const newTitle = postDiv.querySelector('.edit-title').value;
+      const newContent = postDiv.querySelector('.edit-content').value;
+
+      const { error } = await supabase
+        .from('posts')
+        .update({ title: newTitle, content: newContent })
+        .eq('id', postId);
+
+      if (error) {
+        showToast('Error updating post. 😢', 'error');
+        console.error(error);
+      } else {
+        showToast('Post updated ✨');
+        loadPosts();
+      }
+    });
+
+    // CANCEL
+    postDiv.querySelector('.cancel-btn').addEventListener('click', () => {
+      loadPosts();
+    });
+  });
+});
+
+
+
+  // Add listener edit
+  postsContainer.querySelectorAll('.edit-btn').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const postId = btn.dataset.id;
+      const postDiv = btn.closest('div.flex.justify-between');
+      const title = postDiv.querySelector('h3').textContent;
+      const content = postDiv.querySelector('p.mt-2').textContent;
+
+      document.getElementById('title').value = title;
+      document.getElementById('content').value = content;
+      const submitBtn = form.querySelector('button[type="submit"]');
+      submitBtn.textContent = 'Save changes';
+
+      // Remove listener create posts
+      form.removeEventListener('submit', createPostListener);
+
+      const saveListener = async (e) => {
+        e.preventDefault();
+        const newTitle = document.getElementById('title').value;
+        const newContent = document.getElementById('content').value;
+
+        const { error } = await supabase
+          .from('posts')
+          .update({ title: newTitle, content: newContent })
+          .eq('id', postId);
+
+        if (error) {
+          showToast('Error updating post 😢', 'error');
+          console.error(error);
+        } else {
+          showToast('Post updated successfully. 🎉');
+          form.reset();
+          submitBtn.textContent = 'Publish';
+          loadPosts();
+        }
+
+        // Go back to being a listener for creating posts
+        form.removeEventListener('submit', saveListener);
+        form.addEventListener('submit', createPostListener);
+      };
+
+      form.addEventListener('submit', saveListener);
+    });
+  });
+}
+
+function showToast(text, type = 'success') {
+  const toast = document.createElement('div');
+
+  toast.className = `
+    fixed bottom-6 right-6 z-50
+    rounded px-4 py-2 text-sm text-white shadow
+    ${type === 'success' ? 'bg-green-600' : 'bg-red-600'}
+  `;
+
+  toast.textContent = text;
+  document.body.appendChild(toast);
+
+  setTimeout(() => {
+    toast.remove();
+  }, 2500);
+}
+
+
+loadPosts();
+</script>

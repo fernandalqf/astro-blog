@@ -1,0 +1,172 @@
+---
+export const prerender = false;
+
+import Layout from '../../layouts/Layout.astro';
+import { supabase } from '../../lib/supabaseClient.js';
+
+// Pega o ID da URL
+const { id } = Astro.params;
+
+// Busca o post pelo ID
+const { data: post, error } = await supabase
+  .from('posts')
+  .select('*')
+  .eq('id', id)
+  .single();
+---
+
+<Layout>
+  {error || !post ? (
+    <p class="text-red-600 mt-10 text-center">
+      Post not found 😢
+    </p>
+  ) : (
+    <article id="postWrapper" data-id={id} class="mx-auto mt-10 max-w-3xl">
+      <h1 class="mb-4 text-3xl font-bold">
+        {post.title}
+      </h1>
+
+      <p class="mb-6 text-sm text-gray-400">
+        {new Date(post.created_at).toLocaleDateString()}
+      </p>
+
+      <div class="prose max-w-none">
+        <p>{post.content}</p>
+      </div>
+
+      <!-- Comment Form -->
+      <form id="commentForm" class="mt-6 flex flex-col gap-2">
+        <textarea
+          id="commentContent"
+          placeholder="What do you have to say?"
+          rows="3"
+          class="rounded border px-3 py-2"
+          required
+        ></textarea>
+        <button
+          type="submit"
+          class="self-start rounded bg-blue-600 px-4 py-2 font-semibold text-white"
+        >
+          Comment
+        </button>
+        <p id="commentMessage" class="text-sm text-green-600"></p>
+      </form>
+
+      <!-- Comment List -->
+      <div id="commentsList" class="mt-4 space-y-4">
+        <p class="text-gray-500">Loading comments...</p>
+      </div>
+    </article>
+  )}
+</Layout>
+
+
+
+
+
+
+
+
+
+<script>
+import { supabase } from '../../lib/supabaseClient.js';
+
+const postWrapper = document.getElementById('postWrapper');
+const postId = postWrapper.dataset.id;
+
+const commentsList = document.getElementById('commentsList');
+const commentForm = document.getElementById('commentForm');
+const commentContent = document.getElementById('commentContent');
+
+// Search for logged-in user
+const { data: userData } = await supabase.auth.getUser();
+const user = userData.user;
+
+// Toast
+function showToast(text, type = 'success') {
+  const toast = document.createElement('div');
+  toast.className = `
+    fixed bottom-6 right-6 z-50
+    rounded px-4 py-2 text-sm text-white shadow
+    ${type === 'success' ? 'bg-green-600' : 'bg-red-600'}
+  `;
+  toast.textContent = text;
+  document.body.appendChild(toast);
+  setTimeout(() => toast.remove(), 2500);
+}
+
+// Function to list comments
+async function loadComments() {
+  const { data: comments, error } = await supabase
+    .from('comments')
+    .select('id, content, user_id, created_at')
+    .eq('post_id', postId)
+    .order('created_at', { ascending: true });
+
+  commentsList.innerHTML = '';
+
+  if (error) {
+    showToast('Error loading comments 😢', 'error');
+    console.error(error);
+    return;
+  }
+
+  if (!comments || comments.length === 0) {
+    commentsList.innerHTML = '<p class="text-gray-500">No comments yet. Be the first :)</p>';
+    return;
+  }
+
+  comments.forEach((comment) => {
+    const div = document.createElement('div');
+    div.className = 'rounded border p-3 flex justify-between items-start';
+    div.innerHTML = `
+      <p class="text-gray-700">${comment.content}</p>
+      ${
+        comment.user_id === user?.id
+          ? `<button class="delete-comment-btn text-sm text-red-600 hover:underline" data-id="${comment.id}">Delete</button>`
+          : ''
+      }
+    `;
+    commentsList.appendChild(div);
+  });
+
+  // Listener Delete
+  commentsList.querySelectorAll('.delete-comment-btn').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      const commentId = btn.dataset.id;
+      const { error } = await supabase.from('comments').delete().eq('id', commentId);
+
+      if (error) {
+        showToast('Error deleting comment 😢', 'error');
+        console.error(error);
+      } else {
+        showToast('Comment deleted ✅');
+        loadComments();
+      }
+    });
+  });
+}
+
+loadComments();
+
+// Create Comment
+commentForm.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const content = commentContent.value;
+
+  const { error } = await supabase.from('comments').insert({
+    post_id: postId,
+    user_id: user?.id || null, // if you don't need to log in
+    content
+  });
+
+  if (error) {
+    showToast('Error commenting 😢 You need to log in.', 'error');
+    console.error(error);
+  } else {
+    showToast('Comment posted ✅');
+    commentForm.reset();
+    loadComments();
+  }
+});
+</script>

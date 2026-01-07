@@ -4,38 +4,67 @@ import Layout from '../layouts/Layout.astro';
 
 <Layout>
   <div class="mx-auto mt-20 max-w-md rounded-lg border p-6 shadow">
-    <h1 class="mb-6 text-center text-2xl font-bold">Criar conta</h1>
+    <h1 class="mb-6 text-center text-2xl font-bold">Create account</h1>
 
-    <form class="flex flex-col gap-4">
+    <form id="signup-form" class="flex flex-col gap-4">
       <input
+        id="email"
         type="email"
         placeholder="Email"
-        class="w-full rounded border px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+        required
+        class="w-full rounded border px-4 py-2"
       />
 
       <input
+        id="password"
         type="password"
-        placeholder="Senha"
-        class="w-full rounded border px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+        placeholder="Password (min. 6 characters)"
+        required
+        minlength="6"
+        class="w-full rounded border px-4 py-2"
       />
 
       <button
         type="submit"
-        class="rounded bg-blue-600 py-2 font-semibold text-white hover:bg-blue-700"
+        class="rounded bg-blue-600 py-2 font-semibold text-white"
       >
-        Criar conta
+        Create account
       </button>
 
-      <p class="mt-4 text-center text-sm text-gray-600">
-  Já tem conta?
-  <a
-    href="/login"
-    class="font-medium text-blue-600 hover:underline"
-  >
-    Fazer login
-  </a>
-</p>
+      <p id="error" class="text-sm text-red-600 text-center"></p>
 
+      <p class="mt-4 text-center text-sm text-gray-600">
+        Do you already have an account?
+        <a href="/login" class="font-medium text-blue-600 hover:underline">
+          Log in
+        </a>
+      </p>
     </form>
   </div>
 </Layout>
+
+<script>
+  import { supabase } from '../lib/supabaseClient.js';
+
+  const form = document.getElementById('signup-form');
+  const errorEl = document.getElementById('error');
+
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    errorEl.textContent = '';
+
+    const email = document.getElementById('email').value;
+    const password = document.getElementById('password').value;
+
+    const { error } = await supabase.auth.signUp({
+      email,
+      password,
+    });
+
+    if (error) {
+      errorEl.textContent = error.message;
+    } else {
+      window.location.href = '/dashboard';
+    }
+  });
+</script>
