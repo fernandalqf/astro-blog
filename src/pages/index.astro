@@ -2,7 +2,6 @@
 import Layout from '../layouts/Layout.astro';
 import { supabase } from '../lib/supabaseClient.js';
 
-// Search the last 5 posts (newest first)
 const { data: posts, error } = await supabase
   .from('posts')
   .select('id, title, content, created_at')
@@ -11,31 +10,70 @@ const { data: posts, error } = await supabase
 ---
 
 <Layout>
-  <h1 class="mb-6 text-4xl font-bold text-blue-500">
-    Latest Posts
-  </h1>
+<!-- HERO SECTION -->
+<section
+  class="group relative mb-12 flex h-72 items-center justify-center overflow-hidden rounded-lg"
+>
+  <!-- Background image -->
+  <img
+    src="/post-it.png"
+    alt="Background"
+    class="absolute inset-0 h-full w-full object-cover transition-all duration-700
+           group-hover:scale-105 group-hover:blur-sm"
+  />
+
+  <!-- Overlay -->
+  <div class="absolute inset-0 bg-black/5"></div>
+
+  <!-- Text -->
+  <div class="relative z-10 max-w-2xl px-6 text-center text-white">
+    <h1 class="mb-4 text-4xl font-bold">
+      Write it. Share it. Note This!
+    </h1>
+    <p class="text-base md:text-lg">
+      A place for your thoughts, one sticky note at a time.
+    </p>
+  </div>
+</section>
+
+
+  <!-- POSTS -->
+  <h2 class="mb-6 text-3xl font-semibold text-gray-700">
+    Latest Notes
+  </h2>
 
   {error && (
-    <p class="text-red-600">
-      Error loading posts
-    </p>
+    <p class="text-red-600">Error loading posts</p>
   )}
 
   {!error && posts?.length === 0 && (
-    <p class="text-gray-500">
-      No posts published yet.
-    </p>
+    <p class="text-gray-500">No posts published yet.</p>
   )}
 
-  <div class="space-y-4">
-    {posts?.map((post) => (
+  <div class="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+  {posts?.map((post, index) => {
+    const colors = [
+      'hover:bg-yellow-50 hover:border-yellow-400',
+      'hover:bg-green-50 hover:border-green-400',
+      'hover:bg-red-50 hover:border-red-400',
+    ];
+
+    return (
       <a
-        href={`/posts/${post.id}`}
-        class="block rounded border p-4 transition hover:bg-gray-50"
-      >
-        <h2 class="text-xl font-semibold">
-          {post.title}
-        </h2>
+  href={`/posts/${post.id}`}
+  class={`
+    group aspect-square flex flex-col justify-between
+    rounded-lg border-2 border-gray-200 p-4
+    bg-white transition-all duration-300 hover:-rotate-1
+    ${colors[index % colors.length]}
+  `}
+>
+
+
+
+
+
+        <h3 class="text-xl font-semibold">{post.title}</h3>
 
         <p class="mt-2 text-gray-700">
           {post.content.slice(0, 150)}...
@@ -45,17 +83,8 @@ const { data: posts, error } = await supabase
           {new Date(post.created_at).toLocaleDateString()}
         </p>
       </a>
-    ))}
-  </div>
+    );
+  })}
+</div>
 
-  <!-- Floating + button -->
-  <a
-    href="/dashboard"
-    class="fixed bottom-6 right-6 flex h-14 w-14 items-center justify-center
-           rounded-full bg-blue-600 text-3xl font-bold text-white
-           shadow-lg transition hover:bg-blue-700"
-    aria-label="Create post"
-  >
-    +
-  </a>
 </Layout>

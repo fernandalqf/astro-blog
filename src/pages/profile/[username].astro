@@ -1,0 +1,84 @@
+---
+import { supabase } from '../../lib/supabaseClient.js';
+import Layout from '../../layouts/Layout.astro';
+
+let user = null;
+let posts = [];
+let loading = true;
+
+// Busca o usuário logado
+const { data: { user: currentUser } } = await supabase.auth.getUser();
+
+if (!currentUser) {
+  // Se não estiver logado, redireciona para login
+  return Astro.redirect('/login');
+}
+
+user = currentUser;
+
+// Busca os posts do usuário logado
+const { data, error } = await supabase
+  .from('posts')
+  .select('*')
+  .eq('user_id', user.id)
+  .order('created_at', { ascending: false });
+
+if (error) {
+  console.error(error);
+  posts = [];
+} else {
+  posts = data;
+}
+
+loading = false;
+---
+
+<Layout>
+  <h1 class="text-2xl font-bold mb-4">
+    Olá, {user.email} 👋
+  </h1>
+
+  <button
+    class="mb-6 rounded bg-red-600 px-4 py-2 text-white hover:bg-red-700"
+    id="deleteAccountBtn"
+  >
+    Deletar minha conta
+  </button>
+
+  <h2 class="text-xl font-semibold mb-2">Meus Posts</h2>
+
+  {loading && <p>Carregando posts...</p>}
+
+  {!loading && posts.length === 0 && <p>Você ainda não criou nenhum post.</p>}
+
+  <div class="space-y-4">
+    {posts.map(post => (
+      <div class="border rounded p-4">
+        <h3 class="font-semibold">{post.title}</h3>
+        <p>{post.content}</p>
+        <p class="text-xs text-gray-400">{new Date(post.created_at).toLocaleDateString()}</p>
+      </div>
+    ))}
+  </div>
+
+  <script type="module">
+    import { supabase } from '../../lib/supabaseClient.js';
+
+    const deleteBtn = document.getElementById('deleteAccountBtn');
+    deleteBtn.addEventListener('click', async () => {
+      if (!confirm('Tem certeza que deseja deletar sua conta? Todos os posts serão apagados.')) return;
+
+      // Deleta posts do usuário
+      await supabase.from('posts').delete().eq('user_id', '{user.id}');
+
+      // Deleta conta
+      const { error } = await supabase.auth.admin.deleteUser('{user.id}');
+      if (error) {
+        alert('Erro ao deletar a conta: ' + error.message);
+      } else {
+        alert('Conta deletada com sucesso!');
+        window.location.href = '/';
+      }
+    });
+  </script>
+</Layout>

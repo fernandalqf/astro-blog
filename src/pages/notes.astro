@@ -1,0 +1,64 @@
+---
+import Layout from '../layouts/Layout.astro';
+import { supabase } from '../lib/supabaseClient.js';
+
+const { data: posts, error } = await supabase
+  .from('posts')
+  .select('id, title, content, created_at')
+  .order('created_at', { ascending: false });
+---
+
+<Layout>
+  <h1 class="mb-8 text-4xl font-bold text-gray-700">
+    All Notes 🗒️
+  </h1>
+
+
+
+
+
+
+  {error && (
+    <p class="text-red-600">Error loading posts.</p>
+  )}
+
+  {!error && posts?.length === 0 && (
+    <p class="text-gray-500">No notes yet.</p>
+  )}
+
+  <div class="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+    {posts?.map((post, index) => {
+      const colors = [
+        'hover:bg-yellow-50 hover:border-yellow-400',
+        'hover:bg-green-50 hover:border-green-400',
+        'hover:bg-red-50 hover:border-red-400',
+      ];
+
+      return (
+        <a
+          href={`/posts/${post.id}`}
+          class={`
+            group aspect-square flex flex-col justify-between
+            rounded-lg border-2 border-gray-200 p-4
+            bg-white transition-all duration-300 hover:-rotate-1
+            ${colors[index % colors.length]}
+          `}
+        >
+          <div>
+            <h2 class="text-lg font-semibold line-clamp-2">
+              {post.title}
+            </h2>
+
+            <p class="mt-2 text-sm text-gray-700 line-clamp-5">
+              {post.content}
+            </p>
+          </div>
+
+          <p class="mt-4 text-xs text-gray-400">
+            {new Date(post.created_at).toLocaleDateString()}
+          </p>
+        </a>
+      );
+    })}
+  </div>
+</Layout>
